@@ -1,0 +1,35 @@
+# Python-специфічне
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+
+# Приватні дані (ВАЖЛИВО)
+youtube_cookies.txt
+links_to_process.txt
+
+# Вихідні дані (Результати транскрибації)
+*.md
+!README.md
+!implementation_plan.md
+!walkthrough.md
+!task.md
+
+# Тимчасові файли (які будуть створені yt-dlp)
+temp_sub_*
+*.vtt
+*.srt
+*.ttml
+
+# Ігноруємо всі папки з даними користувача
+[🧩#тег]*/
+Замесин*/
+Політичний*/
+ші-*/
+# Або просто заігноруємо будь-яку вкладену папку, крім системних
+*/
+!.agent/
+!.vscode/
+!.gemini/
