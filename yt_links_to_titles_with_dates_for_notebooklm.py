@@ -4,19 +4,6 @@ import time
 import yt_dlp
 import re
 import sys
-from youtube_transcript_api import (
-    YouTubeTranscriptApi,
-    NoTranscriptFound,
-    IpBlocked,
-    RequestBlocked,
-)
-
-if sys.platform == "win32":
-    import io
-    sys.stdout = io.TextIOWrapper(
-        sys.stdout.buffer, encoding="utf-8", line_buffering=True
-    )
-
 import http.cookiejar
 import requests
 
@@ -31,7 +18,10 @@ USE_SAFE_MODE = True  # Емуляція поведінки людини (пау
 def get_yt_session(path):
     session = requests.Session()
     session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Referer': 'https://www.youtube.com/',
+        'Origin': 'https://www.youtube.com'
     })
     if os.path.exists(path) and os.path.getsize(path) > 0:
         try:
@@ -64,6 +54,136 @@ def natural_sleep(processed_in_session, next_break):
     
     return processed_in_session, next_break
 
+def clean_vtt_text(vtt_content):
+    """Очищення VTT від таймкодів, службових тегів та повторів."""
+    lines = vtt_content.splitlines()
+    cleaned_lines = []
+    
+    content_lines = []
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('WEBVTT') or line.startswith('Kind:') or line.startswith('Language:'):
+            continue
+        if '-->' in line:
+            continue
+            
+        # Видаляємо HTML-подібні теги <c>...</c> або <00:00:00.000>
+        line = re.sub(r'<[^>]+>', '', line)
+        if line:
+            content_lines.append(line)
+            
+    # Видаляємо послідовні дублікати (особливість YouTube VTT)
+    for line in content_lines:
+        if not cleaned_lines or line != cleaned_lines[-1]:
+            cleaned_lines.append(line)
+            
+    return " ".join(cleaned_lines)
+
+def fetch_transcript_v2(url, output_folder, cookie_path=None):
+    """
+    План D: Витягування прямого посилання та самостійне завантаження через requests.
+    Це обходить n-challenge та PO-Token перевірки внутрішнього завантажувача yt-dlp.
+    """
+    try:
+        ydl_opts = {
+            'quiet': True,
+            'skip_download': True,
+            'cookiefile': cookie_path if cookie_path and os.path.exists(cookie_path) else None,
+            # ВИКОРИСТОВУЄМО embedded-клієнт — він найменш захищений від ботів
+            'extractor_args': {'youtube': {'player_client': ['web_embedded', 'android']}}
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f"      - Отримую посилання на субтитри...")
+            info = ydl.extract_info(url, download=False)
+            
+            # Об'єднуємо авто-субтитри та ручні
+            all_subs = info.get('automatic_captions', {})
+            all_subs.update(info.get('subtitles', {}))
+            
+            # Пріоритет мов (uk -> ru -> en)
+            target_langs = ['uk', 'ru', 'en']
+            target_url = None
+            format_ext = 'vtt'
+            
+            for lang_code in target_langs:
+                matching = [k for k in all_subs.keys() if k.startswith(lang_code)]
+                if matching:
+                    formats = all_subs[matching[0]]
+                    # Шукаємо json3 (найпростіший для парсингу) або vtt
+                    for f in formats:
+                        if f.get('ext') == 'json3':
+                            target_url = f.get('url')
+                            format_ext = 'json'
+                            break
+                        if f.get('ext') == 'vtt':
+                            target_url = f.get('url')
+                            format_ext = 'vtt'
+                    if target_url: break
+            
+            if not target_url:
+                # Якщо нічого не підійшло, беремо взагалі будь-яку доступну автоматичну доріжку
+                if all_subs:
+                    first_lang = list(all_subs.keys())[0]
+                    target_url = all_subs[first_lang][0].get('url')
+                    format_ext = all_subs[first_lang][0].get('ext', 'vtt')
+                    print(f"        [INFO] Мова {target_langs} не знайдена. Беремо {first_lang}.")
+                
+            if not target_url:
+                print(f"        [WARN] Субтитри не знайдені в метаданих.")
+                return None
+                
+            # План F: Додаємо випадкову затримку перед прямим запитом (імітація людської паузи)
+            wait_time = random.uniform(5.0, 10.0)
+            print(f"      - Очікування {wait_time:.1f}с перед завантаженням ({format_ext})...")
+            time.sleep(wait_time)
+            
+            # Спроба 1: Анонімне завантаження (без кук, іноді це допомагає обійти блок акаунту)
+            print(f"      - Спроба анонімного скачування...")
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Referer': 'https://www.youtube.com/'
+            }
+            
+            try:
+                import urllib.request
+                req = urllib.request.Request(target_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    res_content = response.read().decode('utf-8')
+                    # Обробляємо текст
+                    if format_ext == 'json' or '"events":' in res_content:
+                        import json
+                        data = json.loads(res_content)
+                        text_parts = [s.get('utf8', '').strip() for e in data.get('events', []) for s in e.get('segs', []) if s.get('utf8')]
+                        return " ".join(text_parts)
+                    return clean_vtt_text(res_content)
+            except Exception as e:
+                print(f"        [INFO] Анонімний запит не вдався, пробуємо з куками... ({e})")
+            
+            # Спроба 2: Завантаження з куками (як раніше)
+            session = get_yt_session(cookie_path)
+            response = session.get(target_url, timeout=20)
+            
+            if response.status_code == 200:
+                res_text = response.text
+                if format_ext == 'json' or '"events":' in res_text:
+                    import json
+                    try:
+                        data = json.loads(res_text)
+                        text_parts = [s.get('utf8', '').strip() for e in data.get('events', []) for s in e.get('segs', []) if s.get('utf8')]
+                        return " ".join(text_parts)
+                    except:
+                        return clean_vtt_text(res_text)
+                return clean_vtt_text(res_text)
+            else:
+                print(f"        [ERROR] Усі спроби завантаження (анонімно та з куками) відхилені: {response.status_code}")
+                
+    except Exception as e:
+        print(f"        [ERROR] План D не вдався: {e}")
+            
+    return None
+
 def clean_filename(title):
     return re.sub(r'[\\/*?:"<>|]', "", title).strip()
 
@@ -72,65 +192,6 @@ def get_video_id(url):
     elif "be/" in url: return url.split("be/")[1].split("?")[0]
     return None
 
-def fetch_best_transcript(video_id, session=None):
-    """Ручні й авто-субтитри (youtube-transcript-api ≥1.2): uk → ru → en, далі переклад/будь-яка доріжка."""
-
-    def fetched_to_text(fetched):
-        full_text = " ".join(s.text.replace("\n", " ") for s in fetched)
-        return re.sub(r"\s+", " ", full_text).strip()
-
-    def attempt():
-        print(f"      - Спроба отримати субтитри для {video_id}...")
-        api = YouTubeTranscriptApi(http_client=session)
-        try:
-            print("        - Запит fetch(uk, ru, en)...")
-            return fetched_to_text(
-                api.fetch(video_id, languages=["uk", "ru", "en"])
-            )
-        except NoTranscriptFound:
-            print("        - NoTranscriptFound: перевіряю список доступних...")
-            transcript_list = api.list(video_id)
-            for t in transcript_list:
-                if t.is_translatable:
-                    print(f"        - Спроба перекладу {t.language_code} -> uk...")
-                    try:
-                        return fetched_to_text(t.translate("uk").fetch())
-                    except (IpBlocked, RequestBlocked):
-                        print("        - Блокування IP під час перекладу.")
-                        raise
-                    except Exception as e:
-                        print(f"        - Помилка під час перекладу: {e}")
-                        continue
-            for t in transcript_list:
-                print(f"        - Спроба завантажити як є: {t.language_code}...")
-                try:
-                    return fetched_to_text(t.fetch())
-                except (IpBlocked, RequestBlocked):
-                    print("        - Блокування IP під час завантаження.")
-                    raise
-                except Exception as e:
-                    print(f"        - Помилка під час завантаження: {e}")
-                    continue
-        except Exception as e:
-            if "429" in str(e):
-                print("        [CRITICAL] YouTube заблокував запит (Error 429: Too Many Requests).")
-                if not (session and session.cookies):
-                    print("        [TIP] Спробуйте додати файл youtube_cookies.txt для авторизації.")
-            else:
-                print(f"        - Помилка API: {e}")
-        return None
-
-    for try_i in range(4):
-        if try_i:
-            delay = 15 * try_i + random.uniform(0, 12)
-            print(f"      - ПОВТОР {try_i}/3 після затримки {delay:.1f}с...")
-            time.sleep(delay)
-        try:
-            result = attempt()
-        except (IpBlocked, RequestBlocked):
-            continue
-        return result
-    return None
 
 def load_urls_from_file(file_path):
     if not os.path.exists(file_path):
@@ -184,7 +245,7 @@ def process_youtube_batch(input_txt, output_path):
                 
                 print(f"      - Канал: {channel}")
                 print(f"      - Назва: {title}")
-                text = fetch_best_transcript(v_id, session=session)
+                text = fetch_transcript_v2(url, output_path, cookie_path=cookie_file)
                 
                 if text:
                     filename = f"{formatted_date}_ {safe_channel}_ {safe_title}.md"

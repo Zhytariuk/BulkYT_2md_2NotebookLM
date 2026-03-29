@@ -1,7 +1,10 @@
-# 📺 YT2NotebookLM — Bulk YouTube Transcripts → Structured Markdown
+# BulkYT_2md_2NotebookLM 
 
-> **Auto-Markdown YouTube Vault: Dates, Channels & Transcripts**  
-> Перетворює список YouTube-посилань на впорядковану бібліотеку `.md` файлів, готових для Google NotebookLM.
+## 📺 YT_2md_2NotebookLM — Bulk Import YouTube Video → into Structured Markdown with transcript, description, sorted by date as sources of NotebookLM
+
+> **Generate Markdown Content from YouTube Channels: Bulk Auto-import transcripts and descriptions and auto-naming .md-files with creation date, channel name as file titles**  
+
+> Перетворює список YouTube-посилань на впорядковану бібліотеку `.md` файлів, зі структурою, зручною для ШІ. Кожен файл - автоматично наповнюється транскрипцією та описом відео, зберігається під назвою, що містить дату публікації, автора та назву відео - для легкої навігації та прочитання в Google NotebookLM.
 
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python)](https://www.python.org/)
 [![yt-dlp](https://img.shields.io/badge/yt--dlp-latest-red)](https://github.com/yt-dlp/yt-dlp)
@@ -12,7 +15,7 @@
 
 ## 🎯 Навіщо це потрібно
 
-> *"Коли я хочу опрацювати десятки відео, я використовую цей скрипт, щоб **не витрачати години на рутину** і відразу перейти до аналізу."*
+> *"Коли я хочу додати в NotebookLM десятки відео з YouTube, я використовую цей скрипт, щоб масово імпортувати їхні транскрипти з описом, тегами та ыншими структурованими даними. Всі вони зберігаються у файли markdown .md з автоматично доданою в назву датою публікації відео та ім'ям автора."*
 
 **Ситуація:** У вас є список важливих YouTube-відео — лекції, інтерв'ю, подкасти — і ви хочете занурити їх у свій робочий простір у NotebookLM, Obsidian або будь-якій PKM-системі.
 
