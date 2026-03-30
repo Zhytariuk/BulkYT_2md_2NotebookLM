@@ -44,8 +44,8 @@
 
 - **Python:** 3.8 або новіший
 - **pip** (входить до стандартної установки Python)
-- **Підключення до інтернету**
-- `ffmpeg` — **не потрібен** (скрипт працює тільки з текстом)
+- **Deno:** [deno.land](https://deno.land/) (необхідний для розв'язання JavaScript-завдань YouTube)
+- **FFmpeg:** [ffmpeg.org](https://ffmpeg.org/) (необхідний для стабільної роботи `yt-dlp` з медіа-даними)
 
 ---
 
@@ -60,13 +60,23 @@ cd yt2notebooklm
 
 Або просто завантажте файл `yt_links_to_titles_with_dates_for_notebooklm.py` вручну.
 
-### 2. Встановити залежності
-
 ```bash
-pip install yt-dlp youtube-transcript-api
+pip install yt-dlp requests
 ```
 
-> **Windows:** Якщо команда `pip` не знайдена, спробуйте `py -m pip install yt-dlp youtube-transcript-api`
+### 3. Встановити системні інструменти (Windows)
+
+Для обходу сучасного захисту YouTube («n-challenge») скрипту потрібен **Deno** та **FFmpeg**. Виконайте в PowerShell:
+
+```powershell
+# Встановлення Deno
+winget install --id DenoLand.Deno -e --source winget
+
+# Встановлення FFmpeg
+winget install --id Gyan.FFmpeg -e --source winget
+```
+
+> **Важливо:** Після встановлення перезапустіть термінал або Cursor, щоб зміни набрали чинності.
 
 ### 3. Налаштувати шляхи у скрипті
 
@@ -105,12 +115,12 @@ your-folder/
 
 ### Terminal / PowerShell (Windows)
 ```powershell
-python yt_links_to_titles_with_dates_for_notebooklm.py
+python yt_links_to_md_transcript_with_dates.py
 ```
 
 ### macOS / Linux Terminal
 ```bash
-python3 yt_links_to_titles_with_dates_for_notebooklm.py
+python3 yt_links_to_md_transcript_with_dates.py
 ```
 
 ### IDE (VS Code, Cursor, PyCharm)
@@ -272,7 +282,10 @@ https://youtube.com/...                 ← авто
 ## ❓ Часті питання (FAQ)
 
 **Q: Я отримую `Error 429: Too Many Requests`. Що це?**  
-A: YouTube тимчасово обмежив запити з вашої IP-адреси. Це часто трапляється при обробці великої кількості відео. Використовуйте функцію **Cookies** (див. розділ вище), щоб обійти це обмеження.
+A: YouTube тимчасово обмежив запити з вашої IP-адреси. Це часто трапляється при обробці великої кількості відео. 
+- **Рішення 1:** Використовуйте **Cookies** (див. розділ вище).
+- **Рішення 2:** Зачекайте **1 годину**. YouTube зазвичай автоматично знімає блокування після періоду спокою.
+- **Рішення 3:** Скрипт автоматично використовує **Safe Mode** (паузи 12-28с), не вимикайте його.
 
 **Q: Я отримав `[ERROR] Субтитри недоступні`. Що це означає?**  
 A: У цього відео повністю вимкнені субтитри (включаючи авто-генерацію). Файл не буде створено, а URL залишиться у `links_to_process.txt` для повторної спроби. 

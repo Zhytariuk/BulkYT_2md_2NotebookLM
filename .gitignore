@@ -1,35 +1,39 @@
-# Python-специфічне
-__pycache__/
-*.py[cod]
-*$py.class
-venv/
-.venv/
-.env
+# --- BulkYT_2md_2NotebookLM ---
+# .gitignore: Тільки для коду (Code Only)
 
-# Приватні дані (ВАЖЛИВО)
+# Приватні дані та конфігурації
+# Навіть якщо ці файли тепер в іншій папці, ми залишимо їх тут для безпеки.
 youtube_cookies.txt
 links_to_process.txt
-
-# Вихідні дані (Результати транскрибації)
-*.md
-!README.md
-!implementation_plan.md
-!walkthrough.md
-!task.md
-
-# Тимчасові файли (які будуть створені yt-dlp)
-temp_sub_*
+links_to_process*.txt
 *.vtt
 *.srt
 *.ttml
+*.srv1
+*.json
 
-# Ігноруємо всі папки з даними користувача
-[🧩#тег]*/
-Замесин*/
-Політичний*/
-ші-*/
-# Або просто заігноруємо будь-яку вкладену папку, крім системних
-*/
-!.agent/
-!.vscode/
-!.gemini/
+# Тимчасові операційні папки та файли
+temp_sub_*
+/My_NotebookLM/
+
+# Python-специфічні файли
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Налаштування редакторів (IDE)
+.vscode/
+.idea/
+*.swp
+*.bak
+.DS_Store
+
+# Архів (старі версії)
+archive/
